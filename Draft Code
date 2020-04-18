@@ -1,0 +1,148 @@
+#STA5703 Final
+#Spring 2020
+#Cat Baker & Darshay Blount
+
+#Download PHY_TRAIN.csv from webcourses
+
+
+# Import modules
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split 
+import matplotlib as mpl
+import seaborn as sns
+from scipy.stats import norm, skew
+import matplotlib.pyplot as plt
+%matplotlib inline
+from sklearn.impute import MissingIndicator, SimpleImputer, KNNImputer
+import scipy.sparse as sp
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.ensemble import RandomForestClassifier
+
+# Import the data
+df = pd.read_csv('/Users/darshayblount/Documents/1 MSDA/Data Mining/PHY_TRAIN.csv')
+
+# Take a peek
+df.info()
+df.head()
+df.describe(include= 'all')
+df['target'].describe()
+sns.countplot(x='target', data=df) #binary dist
+
+# Print column names
+for col in df.columns:
+    print(col)
+    
+# Heatmap of missing values
+plt.subplots(figsize=(10,7))
+sns.heatmap(df.isnull(), yticklabels=False, cbar=False)
+
+# Look at exactly which columns have missing data
+all_null = df.isnull().sum()
+
+
+# Step 2: Create binary missing value indicators
+# where missing = 1 and present = 0
+indicator = MissingIndicator()
+#need to reshape
+
+# Step 3: Missing value imputation
+# Find mean for each col with missing values
+mean_20 = df['feat20'].mean()
+df['feat20'].fillna(value=mean_20, inplace=True)
+
+mean_21 = df['feat21'].mean()
+df['feat21'].fillna(value=mean_21, inplace=True)
+
+mean_22 = df['feat22'].mean()
+df['feat22'].fillna(value=mean_22, inplace=True)
+
+mean_29 = df['feat29'].mean()
+df['feat29'].fillna(value=mean_29, inplace=True)
+
+mean_44 = df['feat44'].mean()
+df['feat44'].fillna(value=mean_44, inplace=True)
+
+mean_45 = df['feat45'].mean()
+df['feat45'].fillna(value=mean_45, inplace=True)
+
+mean_46 = df['feat46'].mean()
+df['feat46'].fillna(value=mean_46, inplace=True)
+
+mean_55 = df['feat55'].mean()
+df['feat55'].fillna(value=mean_55, inplace=True)
+
+#Check to make sure there aren't any more missing vals
+all_null = df.isnull().sum()
+
+# Step 4: Transformation of selected variables (optional since we didn't take data prep)
+
+# Step 5
+# 1. Build a logistic regression model without interaction terms
+# Identify the target var
+df.drop('exampleid', axis=1)
+x = df.drop('target', axis=1)
+y = df['target']
+x_train, x_test, y_train, y_test = train_test_split(x, y, test_size = .30)
+
+# Build the model 
+from sklearn.linear_model import LogisticRegression
+logmodel = LogisticRegression()
+logmodel.fit(x_train, y_train)
+predictions = logmodel.predict(x_test)
+
+# Evaluate the model
+from sklearn.metrics import classification_report
+print(classification_report(y_test, predictions))
+from sklearn.metrics import confusion_matrix
+confusion_matrix(y_test, predictions)
+
+# 2. Build another logistic regression with at least three two-way interactions
+poly = PolynomialFeatures(degree=2)
+model = LogisticRegression(multi_class='multinomial')
+model = make_pipeline(poly, model)
+model.fit(x_train, y_train)
+
+# 3. Build a model using random forest
+rfc = RandomForestClassifier(n_estimators=100)
+
+# Fit the model
+rfc.fit(x_train, y_train)
+rfc_pred = rfc.predict(x_test)
+
+# Print confusion matrix and classification report
+print(confusion_matrix(y_test,rfc_pred))
+print(classification_report(y_test,rfc_pred))
+
+
+# 4. Build a model using gradient boosting
+from sklearn.ensemble import GradientBoostingClassifier
+lr_list = [0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1] #different learning rates
+for learning_rate in lr_list:
+    gb_clf = GradientBoostingClassifier(n_estimators=500, learning_rate=learning_rate, max_features=2, max_depth=4, random_state=0)
+    gb_clf.fit(x_train, y_train)
+    
+    print("Learning rate: ", learning_rate)
+    print("Accuracy score (training): {0:.3f}".format(gb_clf.score(x_train, y_train)))
+    print("Accuracy score (validation): {0:.3f}".format(gb_clf.score(x_test, y_test)))
+    
+#Using 0.25 as learning rate
+gb_clf2 = GradientBoostingClassifier(n_estimators=500, learning_rate=0.25, max_features=2, max_depth=2, random_state=0)
+gb_clf2.fit(x_train, y_train)
+predictions = gb_clf2.predict(x_test)
+
+print("Confusion Matrix:")
+print(confusion_matrix(y_test, predictions))
+
+print("Classification Report")
+print(classification_report(y_test, predictions))
+    
+#Gradient Boost Regressor
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.metrics import mean_squared_error
+clf = GradientBoostingRegressor(n_estimators=500, learning_rate=0.25, max_features=2, max_depth=2, random_state=0)
+clf.fit(x_train, y_train)
+mse = mean_squared_error(y_test, clf.predict(x_test))
+print("MSE: %.3f" % mse)  
